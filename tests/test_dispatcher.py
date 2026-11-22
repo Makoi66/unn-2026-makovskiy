@@ -28,8 +28,12 @@ class RecordingHandler(Handler):
 class DispatcherRoutingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sent_messages: list[dict[str, Any]] = []
+        self.sent_stickers: list[dict[str, Any]] = []
         messenger: Messenger = Fake(
-            {"send_message": lambda **p: self.sent_messages.append(p)}
+            {
+                "send_message": lambda **p: self.sent_messages.append(p),
+                "send_sticker": lambda **p: self.sent_stickers.append(p),
+            }
         )
         self.dispatcher = Dispatcher(messenger)
         self.dispatcher.add_handlers(*get_handlers())
@@ -40,8 +44,9 @@ class DispatcherRoutingTest(unittest.TestCase):
         self.dispatcher.dispatch(update)
 
         self.assertEqual(self.sent_messages, [{"chat_id": 42, "text": "Hello"}])
+        self.assertEqual(self.sent_stickers, [])
 
-    def test_sticker_is_ignored(self) -> None:
+    def test_sticker_is_echoed(self) -> None:
         update = {
             "update_id": 1,
             "message": {"chat": {"id": 42}, "sticker": {"file_id": "abc"}},
@@ -50,6 +55,7 @@ class DispatcherRoutingTest(unittest.TestCase):
         self.dispatcher.dispatch(update)
 
         self.assertEqual(self.sent_messages, [])
+        self.assertEqual(self.sent_stickers, [{"chat_id": 42, "sticker": "abc"}])
 
     def test_photo_is_ignored(self) -> None:
         update = {"update_id": 1, "message": {"chat": {"id": 42}, "photo": []}}
@@ -57,6 +63,7 @@ class DispatcherRoutingTest(unittest.TestCase):
         self.dispatcher.dispatch(update)
 
         self.assertEqual(self.sent_messages, [])
+        self.assertEqual(self.sent_stickers, [])
 
 
 class DispatcherChainTest(unittest.TestCase):
